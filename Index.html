@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TubeMarks — browsable video bookmarks</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+body{font-family:Inter,system-ui,sans-serif}
+.mono{font-family:'JetBrains Mono',monospace}
+.card:hover{transform:translateY(-3px)}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#3f3f46;border-radius:8px}
+</style>
+</head>
+<body class="bg-[#0a0a0b] text-zinc-100 min-h-screen">
+<header class="sticky top-0 z-30 backdrop-blur-xl bg-[#0a0a0b]/80 border-b border-zinc-800">
+  <div class="max-w-[1600px] mx-auto px-5 py-4 flex flex-wrap gap-4 items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-white text-black grid place-items-center font-bold">▶</div>
+      <div>
+        <h1 class="font-bold text-[17px] leading-none tracking-tight">TubeMarks</h1>
+        <p class="text-[11px] text-zinc-400 mono mt-0.5">static • GitHub Pages ready • no backend</p>
+      </div>
+      <span class="ml-4 hidden md:inline-flex text-[11px] px-2 py-1 rounded-full bg-zinc-800 text-zinc-300 mono">index.html + bookmarks.json</span>
+    </div>
+    <div class="flex items-center gap-2 w-full md:w-auto">
+      <div class="relative flex-1 md:w-[320px]">
+        <input id="search" placeholder="Search title, tags, notes…" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-zinc-600 placeholder:text-zinc-500">
+        <span class="absolute right-3 top-2.5 text-zinc-500 text-sm">⌘K</span>
+      </div>
+      <button id="shuffleBtn" class="px-3 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-sm">Shuffle</button>
+      <button id="groupBtn" class="px-3 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-sm">Group by tag</button>
+      <button id="addBtn" class="px-4 py-2.5 rounded-xl bg-white text-black font-medium text-sm hover:bg-zinc-200">+ Add</button>
+    </div>
+  </div>
+</header>
+
+<div class="max-w-[1600px] mx-auto px-5 py-6 flex gap-6">
+  <!-- Sidebar -->
+  <aside class="w-[220px] shrink-0 hidden lg:block sticky top-[80px] h-[calc(100vh-100px)] overflow-auto pr-2">
+    <div class="space-y-6">
+      <div>
+        <h3 class="text-[11px] mono uppercase tracking-widest text-zinc-500 mb-3">Tags</h3>
+        <div id="tagList" class="flex flex-wrap gap-1.5"></div>
+      </div>
+      <div class="p-3 rounded-xl bg-zinc-900 border border-zinc-800">
+        <h4 class="text-xs font-medium mb-2">How editing works</h4>
+        <ol class="text-[12px] text-zinc-400 space-y-1 list-decimal pl-4">
+          <li><b class="text-zinc-200">localStorage</b> stores your adds/deletes instantly</li>
+          <li>Click <b class="text-zinc-200">Export</b> → downloads <code class="mono bg-zinc-800 px-1 rounded">bookmarks.json</code></li>
+          <li>Commit that file to GitHub → Pages updates</li>
+        </ol>
+      </div>
+      <div class="flex gap-2">
+        <button id="exportBtn" class="flex-1 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs">Export JSON</button>
+        <label class="flex-1 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-center cursor-pointer">
+          Import
+          <input id="importInput" type="file" accept=".json" class="hidden">
+        </label>
+      </div>
+      <div class="text-[11px] text-zinc-500 mono leading-relaxed">
+        Tip: add <code class="bg-zinc-800 px-1 rounded">?add=URL</code> bookmarklet to capture quickly.
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 min-w-0">
+    <div id="stats" class="text-[12px] mono text-zinc-500 mb-4"></div>
+    <div id="grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4"></div>
+    <div id="grouped" class="hidden space-y-8"></div>
+    <div id="empty" class="hidden py-20 text-center">
+      <div class="text-4xl mb-3">◐</div>
+      <p class="text-sm text-zinc-400">No matches. Try clearing tags or search.</p>
+    </div>
+  </main>
+</div>
+
+<!-- Modal -->
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] hidden px-4 py-2.5 rounded-xl bg-white text-black text-sm font-medium shadow-2xl mono"></div>
+
+<!-- Modal -->
+<div id="modal" class="fixed inset-0 z-50 hidden">
+  <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeModal()"></div>
+  <div class="relative max-w-[560px] mx-auto mt-[8vh] bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-5">
+    <h2 id="modalTitle" class="font-semibold text-[16px]">Add video</h2>
+    <p class="text-xs text-zinc-400 mt-1">Paste any YouTube / Vimeo link. We extract <code class="mono bg-zinc-800 px-1 rounded">og:title</code> + <code class="mono bg-zinc-800 px-1 rounded">og:image</code> via oEmbed → microlink → raw HTML fallback.</p>
+    <div class="mt-5 space-y-4">
+      <div>
+        <label class="text-[11px] mono uppercase text-zinc-500">URL *</label>
+        <input id="m_url" placeholder="https://www.youtube.com/watch?v=..." class="mt-1 w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-3 text-sm outline-none focus:border-zinc-600">
+        <div id="m_fetchStatus" class="text-[11px] mono text-zinc-500 mt-1"></div>
+      </div>
+      <div>
+        <label class="text-[11px] mono uppercase text-zinc-500">Title</label>
+        <input id="m_title" class="mt-1 w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-zinc-600">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-[11px] mono uppercase text-zinc-500">Tags (comma) — typeahead from existing</label>
+          <div class="relative mt-1">
+            <input id="m_tags" placeholder="javascript, cooking, to-watch" autocomplete="off" class="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-zinc-600">
+            <div id="tagSuggest" class="hidden absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl overflow-hidden shadow-2xl z-20 max-h-[160px] overflow-y-auto"></div>
+          </div>
+          <div id="existingTagChips" class="flex flex-wrap gap-1 mt-2"></div>
+        </div>
+        <div>
+          <label class="text-[11px] mono uppercase text-zinc-500">Thumbnail (auto)</label>
+          <input id="m_thumb" placeholder="auto" class="mt-1 w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm outline-none">
+        </div>
+      </div>
+      <div>
+        <label class="text-[11px] mono uppercase text-zinc-500">Note</label>
+        <textarea id="m_note" rows="2" class="mt-1 w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm outline-none"></textarea>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeModal()" class="px-4 py-2 rounded-xl bg-zinc-800 text-sm">Cancel</button>
+        <button id="m_save" class="px-5 py-2 rounded-xl bg-white text-black font-medium text-sm">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SAMPLE = [
+  {
+    "id": "1",
+    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "title": "Never Gonna Give You Up - Tutorial Breakdown",
+    "tags": [
+      "music",
+      "classic",
+      "to-watch"
+    ],
+    "note": "Check production quality",
+    "addedAt": "2024-11-20"
+  },
+  {
+    "id": "2",
+    "url": "https://www.youtube.com/watch?v=9bZkp7q19f0",
+    "title": "PSY - GANGNAM STYLE explained",
+    "tags": [
+      "music",
+      "culture"
+    ],
+    "note": "",
+    "addedAt": "2024-11-18"
+  },
+  {
+    "id": "3",
+    "url": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+    "title": "First YouTube video - me at the zoo",
+    "tags": [
+      "history",
+      "youtube"
+    ],
+    "note": "First ever",
+    "addedAt": "2024-10-01"
+  },
+  {
+    "id": "4",
+    "url": "https://www.youtube.com/watch?v=3JZ_D3ELwOQ",
+    "title": "Learn CSS Grid in 20 mins",
+    "tags": [
+      "javascript",
+      "css",
+      "coding"
+    ],
+    "note": "Good visual examples",
+    "addedAt": "2024-11-22"
+  },
+  {
+    "id": "5",
+    "url": "https://vimeo.com/148751763",
+    "title": "The Beauty of Code",
+    "tags": [
+      "coding",
+      "inspiration"
+    ],
+    "note": "Vimeo test",
+    "addedAt": "2024-11-10"
+  },
+  {
+    "id": "6",
+    "url": "https://www.youtube.com/watch?v=YS4e4q9oBaU",
+    "title": "Folding the perfect Omelette",
+    "tags": [
+      "cooking",
+      "to-watch"
+    ],
+    "note": "For weekend",
+    "addedAt": "2024-11-21"
+  },
+  {
+    "id": "7",
+    "url": "https://www.youtube.com/watch?v=8aGhZQkoFbQ",
+    "title": "What is J.S. Bach?",
+    "tags": [
+      "music",
+      "learning"
+    ],
+    "note": "",
+    "addedAt": "2024-09-12"
+  },
+  {
+    "id": "8",
+    "url": "https://www.youtube.com/watch?v=lTRiuFIWV54",
+    "title": "How to Build a Second Brain",
+    "tags": [
+      "productivity",
+      "learning"
+    ],
+    "note": "Tiago Forte",
+    "addedAt": "2024-11-23"
+  }
+];
+const LS_KEY = 'tubemarks_v1';
+let data = [];
+let selectedTags = new Set();
+let groupMode = false;
+let searchQuery = '';
+let editingId = null;
+
+function ytId(url){
+  try{
+    const u = new URL(url);
+    if(u.hostname.includes('youtu.be')) return u.pathname.slice(1).split('?')[0];
+    if(u.searchParams.get('v')) return u.searchParams.get('v');
+    const m = u.pathname.match(/\/(shorts|embed)\/([^\/\?]+)/);
+    if(m) return m[2];
+  }catch(e){}
+  return null;
+}
+function domain(url){
+  try{ return new URL(url).hostname.replace('www.',''); }catch{ return 'link';}
+}
+function thumbFor(item){
+  if(item.thumbnail) return item.thumbnail;
+  const id = ytId(item.url) || item.videoId;
+  if(id) return `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
+  return `https://images.unsplash.com/photo-1611162616805-3f6b4d0c3f7d?w=640&h=360&fit=crop`;
+}
+function load(){
+  const ls = localStorage.getItem(LS_KEY);
+  if(ls){
+    try{ return JSON.parse(ls); }catch{}
+  }
+  return null;
+}
+function save(){
+  localStorage.setItem(LS_KEY, JSON.stringify(data));
+}
+
+async function init(){
+  const local = load();
+  if(local && local.length){
+    data = local;
+  } else {
+    try{
+      const r = await fetch('./bookmarks.json',{cache:'no-store'});
+      if(r.ok){ data = await r.json(); }
+      else { data = SAMPLE; }
+    }catch{ data = SAMPLE; }
+    save();
+  }
+  // handle ?add= bookmarklet
+  const params = new URLSearchParams(location.search);
+  const addParam = params.get('add');
+  if(addParam){ openAdd(decodeURIComponent(addParam)); }
+
+  bindEvents();
+  render();
+}
+
+function getAllTagsList(){
+  const set = new Set();
+  data.forEach(d=>d.tags.forEach(t=>set.add(t)));
+  return Array.from(set).sort();
+}
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.add('hidden'), 2200);
+}
+async function copyJson(id){
+  const d = data.find(x=>x.id===id);
+  if(!d) return;
+  const minimal = {
+    id: d.id,
+    url: d.url,
+    title: d.title,
+    tags: d.tags,
+    note: d.note||"",
+    addedAt: d.addedAt||new Date().toISOString().slice(0,10),
+    thumbnail: d.thumbnail||"",
+    videoId: d.videoId||""
+  };
+  // clean empty
+  if(!minimal.thumbnail) delete minimal.thumbnail;
+  if(!minimal.videoId) delete minimal.videoId;
+  const text = JSON.stringify(minimal, null, 2);
+  try{
+    await navigator.clipboard.writeText(text);
+    showToast('JSON copied — paste into bookmarks.json');
+  }catch{
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    showToast('JSON copied');
+  }
+}
+
+function updateExistingTagChips(){
+  const cont = document.getElementById('existingTagChips');
+  const all = getAllTagsList();
+  if(!cont) return;
+  const currentTags = document.getElementById('m_tags').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+  cont.innerHTML = all.map(tag=>{
+    const active = currentTags.includes(tag);
+    return `<button type="button" data-chip="${tag}" class="text-[11px] px-2 py-1 rounded-full border ${active?'bg-white text-black border-white':'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-100'}">${tag}</button>`;
+  }).join('');
+  cont.querySelectorAll('button').forEach(b=>{
+    b.onclick=()=>{
+      const tag=b.dataset.chip;
+      let vals = document.getElementById('m_tags').value.split(',').map(s=>s.trim()).filter(Boolean);
+      const lower = vals.map(v=>v.toLowerCase());
+      if(lower.includes(tag.toLowerCase())){
+        vals = vals.filter(v=>v.toLowerCase()!==tag.toLowerCase());
+      } else {
+        vals.push(tag);
+      }
+      document.getElementById('m_tags').value = vals.join(', ');
+      updateExistingTagChips();
+      updateTagSuggestions();
+    };
+  });
+}
+
+function updateTagSuggestions(){
+  const input = document.getElementById('m_tags');
+  const box = document.getElementById('tagSuggest');
+  if(!input||!box) return;
+  const all = getAllTagsList();
+  const parts = input.value.split(',');
+  const currentToken = parts[parts.length-1].trim().toLowerCase();
+  const existing = parts.map(s=>s.trim().toLowerCase()).filter(Boolean);
+  
+  if(!currentToken){
+    // show all that are not already added, limited to 8
+    const remaining = all.filter(t=>!existing.includes(t)).slice(0,8);
+    if(remaining.length===0){ box.classList.add('hidden'); return; }
+    box.innerHTML = remaining.map(t=>`<button type="button" class="w-full text-left px-3 py-2 text-[12px] hover:bg-zinc-800 flex justify-between" data-suggest="${t}"><span>${t}</span><span class="text-zinc-500 mono">${data.filter(d=>d.tags.includes(t)).length}</span></button>`).join('');
+    box.classList.remove('hidden');
+  } else {
+    const matches = all.filter(t=> t.toLowerCase().includes(currentToken) && !existing.slice(0,-1).includes(t) ).slice(0,8);
+    if(matches.length===0){ box.classList.add('hidden'); return; }
+    box.innerHTML = matches.map(t=>`<button type="button" class="w-full text-left px-3 py-2 text-[12px] hover:bg-zinc-800 flex justify-between" data-suggest="${t}"><span>${t}</span><span class="text-zinc-500 mono">${data.filter(d=>d.tags.includes(t)).length}</span></button>`).join('');
+    box.classList.remove('hidden');
+  }
+  box.querySelectorAll('button').forEach(b=>{
+    b.onmousedown = (e)=>{ e.preventDefault(); }; // keep focus
+    b.onclick = ()=>{
+      const tag=b.dataset.suggest;
+      const parts = input.value.split(',');
+      parts[parts.length-1]= tag + (parts.length===1?'':', ');
+      if(!input.value.includes(',')) parts[0]=tag+', ';
+      else parts[parts.length-1]= tag;
+      // ensure trailing comma+space for next
+      let newVal = parts.slice(0,-1).join(', ');
+      if(newVal) newVal += ', ' + tag;
+      else newVal = tag;
+      // add comma space for next typing
+      input.value = newVal + ', ';
+      box.classList.add('hidden');
+      updateExistingTagChips();
+      input.focus();
+    };
+  });
+}
+
+function hideTagSuggestDelayed(){
+  setTimeout(()=>{ const box=document.getElementById('tagSuggest'); if(box) box.classList.add('hidden'); }, 180);
+}
+
+
+function bindEvents(){
+  document.getElementById('search').addEventListener('input', e=>{ searchQuery=e.target.value.toLowerCase(); render(); });
+  document.getElementById('shuffleBtn').addEventListener('click', ()=>{ data = data.sort(()=>Math.random()-0.5); render(); });
+  document.getElementById('groupBtn').addEventListener('click', (e)=>{
+    groupMode=!groupMode;
+    e.target.classList.toggle('bg-white'); e.target.classList.toggle('text-black');
+    e.target.classList.toggle('bg-zinc-900');
+    render();
+  });
+  document.getElementById('addBtn').addEventListener('click', ()=>openAdd());
+  document.getElementById('exportBtn').addEventListener('click', exportJSON);
+  document.getElementById('importInput').addEventListener('change', importJSON);
+  document.getElementById('m_url').addEventListener('paste', ()=>setTimeout(autoFetch,100));
+  document.getElementById('m_url').addEventListener('blur', autoFetch);
+  const tagInput = document.getElementById('m_tags');
+  tagInput.addEventListener('input', ()=>{ updateExistingTagChips(); updateTagSuggestions(); });
+  tagInput.addEventListener('focus', ()=>{ updateExistingTagChips(); updateTagSuggestions(); });
+  tagInput.addEventListener('blur', hideTagSuggestDelayed);
+  tagInput.addEventListener('keydown', (e)=>{
+    if(e.key==='Escape'){ document.getElementById('tagSuggest').classList.add('hidden'); }
+    if(e.key==='Enter'){ 
+      const box=document.getElementById('tagSuggest');
+      const first = box.querySelector('button');
+      if(first && !box.classList.contains('hidden')){ e.preventDefault(); first.click(); }
+    }
+  });
+  document.getElementById('m_save').addEventListener('click', saveModal);
+  window.addEventListener('keydown', e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='k'){ e.preventDefault(); document.getElementById('search').focus(); } if(e.key==='Escape') closeModal(); });
+}
+
+function extractFromDoc(doc){
+  const get = (sel) => doc.querySelector(sel)?.getAttribute('content') || '';
+  // og:title > twitter:title > <title>
+  const title = get('meta[property="og:title"]') || get('meta[name="twitter:title"]') || get('meta[property="og:site_name"]') || doc.querySelector('title')?.textContent?.trim() || '';
+  const thumb = get('meta[property="og:image"]') || get('meta[property="og:image:secure_url"]') || get('meta[name="twitter:image"]') || get('meta[name="twitter:image:src"]') || get('meta[property="og:image:url"]') || '';
+  const desc = get('meta[property="og:description"]') || get('meta[name="description"]') || get('meta[name="twitter:description"]') || '';
+  return {title, thumb, desc};
+}
+
+async function autoFetch(){
+  const url = document.getElementById('m_url').value.trim();
+  if(!url) return;
+  const status = document.getElementById('m_fetchStatus');
+  const titleInput = document.getElementById('m_title');
+  const thumbInput = document.getElementById('m_thumb');
+  const id = ytId(url);
+  
+  if(id){
+    status.textContent = 'YouTube detected → using og:image + high-res thumb';
+    if(!thumbInput.value) thumbInput.value = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
+  } else {
+    status.textContent = 'Fetching og:title / og:image…';
+  }
+
+  // 1) Try noembed first (fast, works for YouTube, Vimeo, etc)
+  try{
+    const r = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
+    if(r.ok){
+      const j = await r.json();
+      if(j.title){
+        if(!titleInput.value) titleInput.value = j.title;
+        status.textContent = `Found via oEmbed: ${j.title.slice(0,60)}`;
+      }
+      if(j.thumbnail_url && !thumbInput.value){
+        thumbInput.value = j.thumbnail_url;
+      }
+      // if we got both, stop early for speed
+      if(titleInput.value && thumbInput.value) return;
+    }
+  }catch(e){ /* ignore */ }
+
+  // 2) Try microlink.io — it parses og:title / og:image for you and is CORS-enabled
+  //    Free tier, no key needed for low volume
+  try{
+    status.textContent = 'Trying OG extractor (microlink)…';
+    const r = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}&meta=false`);
+    if(r.ok){
+      const j = await r.json();
+      const d = j.data || {};
+      if(d.title && !titleInput.value){
+        titleInput.value = d.title;
+      }
+      // microlink returns image object
+      const img = d.image?.url || d.logo?.url || '';
+      if(img && !thumbInput.value){
+        // prefer og:image, but keep YouTube hqdefault if we have it
+        if(!id) thumbInput.value = img;
+      }
+      if(d.title) status.textContent = `Found OG: ${d.title.slice(0,60)} via og:title / og:image`;
+      if(titleInput.value && thumbInput.value) return;
+    }
+  }catch(e){ /* ignore */ }
+
+  // 3) Fallback: raw HTML via allorigins proxy + DOMParser for og:title / og:image
+  try{
+    status.textContent = 'Fetching page HTML to read meta tags…';
+    const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+    if(r.ok){
+      const j = await r.json();
+      const doc = new DOMParser().parseFromString(j.contents, 'text/html');
+      const {title, thumb} = extractFromDoc(doc);
+      if(title && !titleInput.value){
+        titleInput.value = title;
+      }
+      if(thumb && !thumbInput.value){
+        thumbInput.value = thumb;
+      }
+      if(title) status.textContent = `Extracted og:title / og:image: ${title.slice(0,60)}`;
+      else status.textContent = 'No og tags found, using fallback';
+    }
+  }catch(e){
+    status.textContent = id ? 'YouTube thumb ready — edit title manually if needed' : 'Could not fetch OG tags (CORS). Paste title manually.';
+  }
+}
+
+function getFiltered(){
+  return data.filter(d=>{
+    const q = searchQuery;
+    const matchesSearch = !q || (d.title+d.tags.join(' ')+(d.note||'')).toLowerCase().includes(q);
+    const matchesTags = selectedTags.size===0 || d.tags.some(t=>selectedTags.has(t));
+    return matchesSearch && matchesTags;
+  });
+}
+
+function renderTags(){
+  const allTags = {};
+  data.forEach(d=>d.tags.forEach(t=> allTags[t]=(allTags[t]||0)+1));
+  const sorted = Object.entries(allTags).sort((a,b)=>b[1]-a[1]);
+  const el = document.getElementById('tagList');
+  el.innerHTML = `<button data-tag="__all__" class="px-2.5 py-1 rounded-full text-xs border ${selectedTags.size===0?'bg-white text-black border-white':'bg-zinc-800 border-zinc-700 text-zinc-300'}">All (${data.length})</button>` + sorted.map(([tag,c])=>{
+    const active = selectedTags.has(tag);
+    return `<button data-tag="${tag}" class="px-2.5 py-1 rounded-full text-xs border ${active?'bg-white text-black border-white':'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'}">${tag} <span class="opacity-60">${c}</span></button>`;
+  }).join('');
+  el.querySelectorAll('button').forEach(b=>{
+    b.onclick=()=>{
+      const tag=b.dataset.tag;
+      if(tag==='__all__'){ selectedTags.clear(); }
+      else { if(selectedTags.has(tag)) selectedTags.delete(tag); else selectedTags.add(tag); }
+      render();
+    };
+  });
+}
+
+function cardHTML(d){
+  const thumb = thumbFor(d);
+  const dom = domain(d.url);
+  return `
+  <div class="card group bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden transition-all hover:border-zinc-700">
+    <a href="${d.url}" target="_blank" class="block relative aspect-video bg-black overflow-hidden">
+      <img src="${thumb}" loading="lazy" class="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500">
+      <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
+      <div class="absolute top-2 left-2 text-[10px] mono px-2 py-1 rounded-full bg-black/70 text-white border border-white/10">${dom}</div>
+      <div class="absolute inset-0 grid place-items-center opacity-0 group-hover:opacity-100 transition"><div class="w-12 h-12 rounded-full bg-white/90 text-black grid place-items-center text-xl">▶</div></div>
+    </a>
+    <div class="p-3.5">
+      <h3 class="text-[14px] font-medium leading-[1.3] line-clamp-2"><a href="${d.url}" target="_blank" class="hover:underline">${d.title||d.url}</a></h3>
+      <div class="flex flex-wrap gap-1 mt-2.5">
+        ${d.tags.map(t=>`<span class="text-[11px] px-2 py-1 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700/50">${t}</span>`).join('')}
+      </div>
+      ${d.note?`<p class="text-[12px] text-zinc-400 mt-2 line-clamp-2">${d.note}</p>`:''}
+      <div class="flex items-center justify-between mt-3">
+        <span class="text-[11px] mono text-zinc-500">${d.addedAt||''}</span>
+        <div class="flex gap-1">
+          <button onclick="copyJson('${d.id}')" class="text-[11px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/50" title="Copy JSON for GitHub">⎙ Copy JSON</button>
+          <button onclick="editItem('${d.id}')" class="text-[11px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700">Edit</button>
+          <button onclick="deleteItem('${d.id}')" class="text-[11px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-red-900/50">Del</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function render(){
+  renderTags();
+  const filtered = getFiltered();
+  document.getElementById('stats').textContent = `${filtered.length} videos • ${selectedTags.size? 'filter: '+[...selectedTags].join(', ') : 'all tags'}${searchQuery? ' • search: "'+searchQuery+'"' : ''}`;
+  const grid = document.getElementById('grid');
+  const grouped = document.getElementById('grouped');
+  const empty = document.getElementById('empty');
+
+  if(filtered.length===0){
+    grid.classList.add('hidden'); grouped.classList.add('hidden'); empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  if(groupMode){
+    grid.classList.add('hidden'); grouped.classList.remove('hidden');
+    const byTag = {};
+    filtered.forEach(d=>{ d.tags.forEach(t=>{ if(!byTag[t]) byTag[t]=[]; byTag[t].push(d); }); });
+    // also untagged
+    grouped.innerHTML = Object.entries(byTag).sort((a,b)=>b[1].length-a[1].length).map(([tag,items])=>`
+      <div>
+        <h2 class="text-sm font-semibold mb-3 flex items-center gap-2"><span class="px-2.5 py-1 rounded-full bg-white text-black mono text-xs">${tag}</span> <span class="text-zinc-500 mono text-xs">${items.length}</span></h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+          ${items.map(cardHTML).join('')}
+        </div>
+      </div>
+    `).join('');
+  } else {
+    grouped.classList.add('hidden'); grid.classList.remove('hidden');
+    grid.innerHTML = filtered.map(cardHTML).join('');
+  }
+}
+
+function openAdd(prefill=''){
+  setTimeout(()=>{ updateExistingTagChips(); }, 50);
+  editingId=null;
+  document.getElementById('modalTitle').textContent='Add video';
+  document.getElementById('m_url').value=prefill;
+  document.getElementById('m_title').value='';
+  document.getElementById('m_tags').value='';
+  document.getElementById('m_note').value='';
+  document.getElementById('m_thumb').value='';
+  document.getElementById('m_fetchStatus').textContent='';
+  document.getElementById('modal').classList.remove('hidden');
+  if(prefill) autoFetch();
+  setTimeout(()=>document.getElementById('m_url').focus(),50);
+}
+function editItem(id){
+  const d = data.find(x=>x.id===id);
+  if(!d) return;
+  editingId=id;
+  document.getElementById('modalTitle').textContent='Edit video';
+  document.getElementById('m_url').value=d.url;
+  document.getElementById('m_title').value=d.title;
+  document.getElementById('m_tags').value=d.tags.join(', ');
+  document.getElementById('m_note').value=d.note||'';
+  document.getElementById('m_thumb').value=d.thumbnail||'';
+  updateExistingTagChips();
+  document.getElementById('modal').classList.remove('hidden');
+}
+function closeModal(){ document.getElementById('modal').classList.add('hidden'); }
+function saveModal(){
+  const url = document.getElementById('m_url').value.trim();
+  if(!url) return alert('URL required');
+  const title = document.getElementById('m_title').value.trim() || url;
+  const tags = document.getElementById('m_tags').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+  const note = document.getElementById('m_note').value.trim();
+  const thumb = document.getElementById('m_thumb').value.trim();
+  if(editingId){
+    const idx = data.findIndex(x=>x.id===editingId);
+    if(idx>=0) data[idx] = {...data[idx], url, title, tags, note, thumbnail:thumb, videoId: ytId(url)};
+  } else {
+    data.unshift({id: Date.now().toString(), url, title, tags: tags.length?tags:['to-watch'], note, thumbnail:thumb, videoId: ytId(url), addedAt: new Date().toISOString().slice(0,10)});
+  }
+  save(); closeModal(); render();
+}
+function deleteItem(id){
+  if(!confirm('Delete this bookmark?')) return;
+  data = data.filter(x=>x.id!==id);
+  save(); render();
+}
+function exportJSON(){
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'bookmarks.json';
+  a.click();
+}
+function importJSON(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const j = JSON.parse(reader.result);
+      if(Array.isArray(j)){ data=j; save(); render(); alert('Imported '+j.length+' videos'); }
+    }catch{ alert('Invalid JSON'); }
+  };
+  reader.readAsText(file);
+}
+
+init();
+</script>
+</body>
+</html>
