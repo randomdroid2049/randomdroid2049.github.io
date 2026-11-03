@@ -21,9 +21,8 @@ body{font-family:Inter,system-ui,sans-serif}
       <div class="w-9 h-9 rounded-xl bg-white text-black grid place-items-center font-bold">▶</div>
       <div>
         <h1 class="font-bold text-[17px] leading-none tracking-tight">TubeMarks</h1>
-        <p class="text-[11px] text-zinc-400 mono mt-0.5">static • GitHub Pages ready • no backend</p>
+        <p class="text-[11px] text-zinc-400 mono mt-0.5">worker + og:title / og:image • no noembed</p>
       </div>
-      <span class="ml-4 hidden md:inline-flex text-[11px] px-2 py-1 rounded-full bg-zinc-800 text-zinc-300 mono">index.html + bookmarks.json</span>
     </div>
     <div class="flex items-center gap-2 w-full md:w-auto">
       <div class="relative flex-1 md:w-[320px]">
@@ -38,7 +37,6 @@ body{font-family:Inter,system-ui,sans-serif}
 </header>
 
 <div class="max-w-[1600px] mx-auto px-5 py-6 flex gap-6">
-  <!-- Sidebar -->
   <aside class="w-[220px] shrink-0 hidden lg:block sticky top-[80px] h-[calc(100vh-100px)] overflow-auto pr-2">
     <div class="space-y-6">
       <div>
@@ -46,12 +44,10 @@ body{font-family:Inter,system-ui,sans-serif}
         <div id="tagList" class="flex flex-wrap gap-1.5"></div>
       </div>
       <div class="p-3 rounded-xl bg-zinc-900 border border-zinc-800">
-        <h4 class="text-xs font-medium mb-2">How editing works</h4>
-        <ol class="text-[12px] text-zinc-400 space-y-1 list-decimal pl-4">
-          <li><b class="text-zinc-200">localStorage</b> stores your adds/deletes instantly</li>
-          <li>Click <b class="text-zinc-200">Export</b> → downloads <code class="mono bg-zinc-800 px-1 rounded">bookmarks.json</code></li>
-          <li>Commit that file to GitHub → Pages updates</li>
-        </ol>
+        <h4 class="text-xs font-medium mb-2">OG Worker (required)</h4>
+        <input id="workerUrlInput" placeholder="https://your-worker.workers.dev" class="w-full bg-black border border-zinc-800 rounded-lg px-2.5 py-2 text-[11px] mono outline-none focus:border-zinc-600">
+        <p class="text-[10px] text-zinc-500 mt-1">Your Cloudflare Worker URL that returns og:title / og:image. No public proxies used.</p>
+        <button id="saveWorkerBtn" class="mt-2 w-full py-1.5 rounded-lg bg-white text-black text-[11px] font-medium">Save Worker URL</button>
       </div>
       <div class="flex gap-2">
         <button id="exportBtn" class="flex-1 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-xs">Export JSON</button>
@@ -60,19 +56,12 @@ body{font-family:Inter,system-ui,sans-serif}
           <input id="importInput" type="file" accept=".json" class="hidden">
         </label>
       </div>
-      <div class="p-3 rounded-xl bg-zinc-900 border border-zinc-800">
-        <h4 class="text-xs font-medium mb-2">OG Worker</h4>
-        <input id="workerUrlInput" placeholder="https://your-worker.workers.dev" class="w-full bg-black border border-zinc-800 rounded-lg px-2.5 py-2 text-[11px] mono outline-none focus:border-zinc-600">
-        <p class="text-[10px] text-zinc-500 mt-1">Set your Cloudflare Worker URL for 100% reliable og:title / og:image. Leave empty to use public proxies.</p>
-        <button id="saveWorkerBtn" class="mt-2 w-full py-1.5 rounded-lg bg-zinc-800 text-[11px]">Save Worker URL</button>
-      </div>
       <div class="text-[11px] text-zinc-500 mono leading-relaxed">
-        Tip: add <code class="bg-zinc-800 px-1 rounded">?add=URL</code> bookmarklet to capture quickly.
+        No more noembed / microlink. Only your Worker does og extraction.
       </div>
     </div>
   </aside>
 
-  <!-- Main -->
   <main class="flex-1 min-w-0">
     <div id="stats" class="text-[12px] mono text-zinc-500 mb-4"></div>
     <div id="grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4"></div>
@@ -84,12 +73,13 @@ body{font-family:Inter,system-ui,sans-serif}
   </main>
 </div>
 
-<!-- Modal -->
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] hidden px-4 py-2.5 rounded-xl bg-white text-black text-sm font-medium shadow-2xl mono"></div>
+
 <div id="modal" class="fixed inset-0 z-50 hidden">
   <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeModal()"></div>
   <div class="relative max-w-[560px] mx-auto mt-[8vh] bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-5">
     <h2 id="modalTitle" class="font-semibold text-[16px]">Add video</h2>
-    <p class="text-xs text-zinc-400 mt-1">Paste any YouTube / Vimeo / etc link. Title & thumbnail auto-fetch.</p>
+    <p class="text-xs text-zinc-400 mt-1">We fetch <code class="mono bg-zinc-800 px-1 rounded">og:title</code> + <code class="mono bg-zinc-800 px-1 rounded">og:image</code> via your private Worker. No noembed.</p>
     <div class="mt-5 space-y-4">
       <div>
         <label class="text-[11px] mono uppercase text-zinc-500">URL *</label>
@@ -97,17 +87,22 @@ body{font-family:Inter,system-ui,sans-serif}
         <div id="m_fetchStatus" class="text-[11px] mono text-zinc-500 mt-1"></div>
       </div>
       <div>
-        <label class="text-[11px] mono uppercase text-zinc-500">Title</label>
+        <label class="text-[11px] mono uppercase text-zinc-500">Title (from og:title)</label>
         <input id="m_title" class="mt-1 w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-zinc-600">
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="text-[11px] mono uppercase text-zinc-500">Tags (comma)</label>
-          <input id="m_tags" placeholder="javascript, cooking, to-watch" class="mt-1 w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm outline-none">
+          <label class="text-[11px] mono uppercase text-zinc-500">Tags — typeahead</label>
+          <div class="relative mt-1">
+            <input id="m_tags" placeholder="javascript, cooking, to-watch" autocomplete="off" class="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-zinc-600">
+            <div id="tagSuggest" class="hidden absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl overflow-hidden shadow-2xl z-20 max-h-[160px] overflow-y-auto"></div>
+          </div>
+          <div id="existingTagChips" class="flex flex-wrap gap-1 mt-2"></div>
         </div>
         <div>
-          <label class="text-[11px] mono uppercase text-zinc-500">Thumbnail (auto)</label>
-          <input id="m_thumb" placeholder="auto" class="mt-1 w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm outline-none">
+          <label class="text-[11px] mono uppercase text-zinc-500">Thumbnail — og:image</label>
+          <input id="m_thumb" placeholder="auto from og:image" class="mt-1 w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm outline-none">
+          <div class="mt-2 hidden" id="thumbPreviewWrap"><img id="thumbPreview" class="w-full aspect-video object-cover rounded-lg border border-zinc-800" /></div>
         </div>
       </div>
       <div>
@@ -123,9 +118,11 @@ body{font-family:Inter,system-ui,sans-serif}
 </div>
 
 <script>
-const SAMPLE = [];
-const CUSTOM_OG_WORKER = 'https://tubemarks-og.forrandomaccts.workers.dev'; // <-- put your worker URL here
+const SAMPLE = [
+];
+const CUSTOM_OG_WORKER = 'https://tubemarks-og.forrandomaccts.workers.dev';
 const LS_KEY = 'tubemarks_v1';
+const WORKER_LS_KEY = 'tubemarks_worker_url';
 let data = [];
 let selectedTags = new Set();
 let groupMode = false;
@@ -151,142 +148,110 @@ function thumbFor(item){
   if(id) return `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
   return `https://images.unsplash.com/photo-1611162616805-3f6b4d0c3f7d?w=640&h=360&fit=crop`;
 }
-function load(){
-  const ls = localStorage.getItem(LS_KEY);
-  if(ls){
-    try{ return JSON.parse(ls); }catch{}
-  }
-  return null;
-}
-function save(){
-  localStorage.setItem(LS_KEY, JSON.stringify(data));
-}
-
-async function init(){
-  const local = load();
-  if(local && local.length){
-    data = local;
-  } else {
-    try{
-      const r = await fetch('./bookmarks.json',{cache:'no-store'});
-      if(r.ok){ data = await r.json(); }
-      else { data = SAMPLE; }
-    }catch{ data = SAMPLE; }
-    save();
-  }
-  // handle ?add= bookmarklet
-  const params = new URLSearchParams(location.search);
-  const addParam = params.get('add');
-  if(addParam){ openAdd(decodeURIComponent(addParam)); }
-
-  loadWorkerUrl();
-  bindEvents();
-  render();
-  // worker save button
-  const swb = document.getElementById('saveWorkerBtn'); if(swb) swb.addEventListener('click', saveWorkerUrl);
-}
-const WORKER_LS_KEY = 'tubemarks_worker_url';
+function load(){ const ls = localStorage.getItem(LS_KEY); if(ls){ try{ return JSON.parse(ls); }catch{} } return null; }
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(data)); }
 function loadWorkerUrl(){
   const saved = localStorage.getItem(WORKER_LS_KEY);
-  if(saved){
-    // update constant dynamically
-    window.CUSTOM_WORKER_URL = saved;
-    const inp = document.getElementById('workerUrlInput');
-    if(inp) inp.value = saved;
-  }
+  if(saved){ window.CUSTOM_WORKER_URL = saved; const inp=document.getElementById('workerUrlInput'); if(inp) inp.value=saved; }
 }
 function saveWorkerUrl(){
-  const v = document.getElementById('workerUrlInput').value.trim();
-  if(v){
-    localStorage.setItem(WORKER_LS_KEY, v);
-    window.CUSTOM_WORKER_URL = v;
-    showToast('Worker URL saved');
-  } else {
-    localStorage.removeItem(WORKER_LS_KEY);
-    window.CUSTOM_WORKER_URL = null;
-    showToast('Worker URL cleared, using public proxies');
-  }
+  const v=document.getElementById('workerUrlInput').value.trim();
+  if(v){ localStorage.setItem(WORKER_LS_KEY,v); window.CUSTOM_WORKER_URL=v; showToast('Worker URL saved — now using og:title/og:image via Worker'); }
+  else { localStorage.removeItem(WORKER_LS_KEY); window.CUSTOM_WORKER_URL=null; showToast('Worker URL cleared'); }
 }
-function getWorkerUrl(){
-  return window.CUSTOM_WORKER_URL || (CUSTOM_OG_WORKER && !CUSTOM_OG_WORKER.includes('REPLACE') ? CUSTOM_OG_WORKER : null);
+function getWorkerUrl(){ return window.CUSTOM_WORKER_URL || (CUSTOM_OG_WORKER && !CUSTOM_OG_WORKER.includes('REPLACE') ? CUSTOM_OG_WORKER : null); }
+function getAllTagsList(){ const s=new Set(); data.forEach(d=>d.tags.forEach(t=>s.add(t))); return Array.from(s).sort(); }
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.remove('hidden'); clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.add('hidden'),2500); }
+async function copyJson(id){
+  const d=data.find(x=>x.id===id); if(!d) return;
+  const minimal={url:d.url,title:d.title,tags:d.tags,note:d.note||"",addedAt:d.addedAt||new Date().toISOString().slice(0,10),thumbnail:d.thumbnail||"",videoId:d.videoId||""};
+  if(!minimal.thumbnail) delete minimal.thumbnail;
+  if(!minimal.videoId) delete minimal.videoId;
+  const text=JSON.stringify(minimal,null,2);
+  try{ await navigator.clipboard.writeText(text); showToast('JSON copied — paste into bookmarks.json'); }
+  catch{ const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); showToast('JSON copied'); }
 }
+function updateExistingTagChips(){
+  const cont=document.getElementById('existingTagChips'); const all=getAllTagsList(); if(!cont) return;
+  const currentTags=document.getElementById('m_tags').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+  cont.innerHTML=all.map(tag=>{ const active=currentTags.includes(tag); return `<button type="button" data-chip="${tag}" class="text-[11px] px-2 py-1 rounded-full border ${active?'bg-white text-black border-white':'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-100'}">${tag}</button>`; }).join('');
+  cont.querySelectorAll('button').forEach(b=>{ b.onclick=()=>{ const tag=b.dataset.chip; let vals=document.getElementById('m_tags').value.split(',').map(s=>s.trim()).filter(Boolean); const lower=vals.map(v=>v.toLowerCase()); if(lower.includes(tag.toLowerCase())){ vals=vals.filter(v=>v.toLowerCase()!==tag.toLowerCase()); } else { vals.push(tag); } document.getElementById('m_tags').value=vals.join(', '); updateExistingTagChips(); updateTagSuggestions(); }; });
+}
+function updateTagSuggestions(){
+  const input=document.getElementById('m_tags'); const box=document.getElementById('tagSuggest'); if(!input||!box) return;
+  const all=getAllTagsList(); const parts=input.value.split(','); const currentToken=parts[parts.length-1].trim().toLowerCase(); const existing=parts.map(s=>s.trim().toLowerCase()).filter(Boolean);
+  if(!currentToken){ const remaining=all.filter(t=>!existing.includes(t)).slice(0,8); if(remaining.length===0){ box.classList.add('hidden'); return; } box.innerHTML=remaining.map(t=>`<button type="button" class="w-full text-left px-3 py-2 text-[12px] hover:bg-zinc-800 flex justify-between" data-suggest="${t}"><span>${t}</span><span class="text-zinc-500 mono">${data.filter(d=>d.tags.includes(t)).length}</span></button>`).join(''); box.classList.remove('hidden'); }
+  else { const matches=all.filter(t=> t.toLowerCase().includes(currentToken) && !existing.slice(0,-1).includes(t) ).slice(0,8); if(matches.length===0){ box.classList.add('hidden'); return; } box.innerHTML=matches.map(t=>`<button type="button" class="w-full text-left px-3 py-2 text-[12px] hover:bg-zinc-800 flex justify-between" data-suggest="${t}"><span>${t}</span><span class="text-zinc-500 mono">${data.filter(d=>d.tags.includes(t)).length}</span></button>`).join(''); box.classList.remove('hidden'); }
+  box.querySelectorAll('button').forEach(b=>{ b.onmousedown=(e)=>{ e.preventDefault(); }; b.onclick=()=>{ const tag=b.dataset.suggest; let newVal=parts.slice(0,-1).join(', '); if(newVal) newVal+=' , '+tag; else newVal=tag; input.value=newVal+', '; box.classList.add('hidden'); updateExistingTagChips(); input.focus(); }; });
+}
+function hideTagSuggestDelayed(){ setTimeout(()=>{ const box=document.getElementById('tagSuggest'); if(box) box.classList.add('hidden'); }, 180); }
 
 function bindEvents(){
   document.getElementById('search').addEventListener('input', e=>{ searchQuery=e.target.value.toLowerCase(); render(); });
   document.getElementById('shuffleBtn').addEventListener('click', ()=>{ data = data.sort(()=>Math.random()-0.5); render(); });
-  document.getElementById('groupBtn').addEventListener('click', (e)=>{
-    groupMode=!groupMode;
-    e.target.classList.toggle('bg-white'); e.target.classList.toggle('text-black');
-    e.target.classList.toggle('bg-zinc-900');
-    render();
-  });
+  document.getElementById('groupBtn').addEventListener('click', (e)=>{ groupMode=!groupMode; e.target.classList.toggle('bg-white'); e.target.classList.toggle('text-black'); e.target.classList.toggle('bg-zinc-900'); render(); });
   document.getElementById('addBtn').addEventListener('click', ()=>openAdd());
   document.getElementById('exportBtn').addEventListener('click', exportJSON);
   document.getElementById('importInput').addEventListener('change', importJSON);
   document.getElementById('m_url').addEventListener('paste', ()=>setTimeout(autoFetch,100));
   document.getElementById('m_url').addEventListener('blur', autoFetch);
+  const tagInput=document.getElementById('m_tags');
+  tagInput.addEventListener('input', ()=>{ updateExistingTagChips(); updateTagSuggestions(); });
+  tagInput.addEventListener('focus', ()=>{ updateExistingTagChips(); updateTagSuggestions(); });
+  tagInput.addEventListener('blur', hideTagSuggestDelayed);
+  tagInput.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ document.getElementById('tagSuggest').classList.add('hidden'); } if(e.key==='Enter'){ const box=document.getElementById('tagSuggest'); const first=box.querySelector('button'); if(first && !box.classList.contains('hidden')){ e.preventDefault(); first.click(); } } });
   document.getElementById('m_save').addEventListener('click', saveModal);
   window.addEventListener('keydown', e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='k'){ e.preventDefault(); document.getElementById('search').focus(); } if(e.key==='Escape') closeModal(); });
 }
 
+async function fetchWithTimeout(url, ms=8000){
+  const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(), ms);
+  try{ const r=await fetch(url,{signal:ctrl.signal}); clearTimeout(t); return r; }catch(e){ clearTimeout(t); throw e; }
+}
+
 async function autoFetch(){
-  const url = document.getElementById('m_url').value.trim();
-  if(!url) return;
-  const status = document.getElementById('m_fetchStatus');
-  const id = ytId(url);
-  if(id){
-    status.textContent = 'YouTube detected → thumbnail auto';
-    document.getElementById('m_thumb').value = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
-    if(!document.getElementById('m_title').value){
-      document.getElementById('m_title').value = url; // will be replaced by noembed if possible
-    }
+  const url=document.getElementById('m_url').value.trim(); if(!url) return;
+  const status=document.getElementById('m_fetchStatus');
+  const titleInput=document.getElementById('m_title');
+  const thumbInput=document.getElementById('m_thumb');
+  const preview=document.getElementById('thumbPreview');
+  const wrap=document.getElementById('thumbPreviewWrap');
+  const id=ytId(url);
+  const setPreview=()=>{ if(preview && thumbInput.value){ preview.src=thumbInput.value; wrap.classList.remove('hidden'); } };
+  thumbInput.addEventListener('input', setPreview);
+  if(id){ if(!thumbInput.value) thumbInput.value=`https://img.youtube.com/vi/${id}/hqdefault.jpg`; setPreview(); }
+
+  const workerUrl=getWorkerUrl();
+  if(!workerUrl){
+    status.innerHTML=`No Worker URL set. Paste your Worker URL in sidebar → Save. Worker does <code class="bg-zinc-800 px-1 rounded">og:title</code> / <code class="bg-zinc-800 px-1 rounded">og:image</code> server-side (no noembed).`;
+    return;
   }
+
   try{
-    status.textContent = 'Fetching title…';
-    const r = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
-    if(r.ok){
-      const j = await r.json();
-      if(j.title && !document.getElementById('m_title').value) document.getElementById('m_title').value = j.title;
-      else if(j.title) document.getElementById('m_title').placeholder = j.title;
-      if(j.thumbnail_url && !document.getElementById('m_thumb').value) document.getElementById('m_thumb').value = j.thumbnail_url;
-      status.textContent = `Found: ${j.title || 'oEmbed data'}`;
-    }
-  }catch{ status.textContent = id ? 'YouTube OK (offline title)' : ''; }
+    status.textContent='Fetching og:title / og:image via your Worker…';
+    const r=await fetchWithTimeout(`${workerUrl}?url=${encodeURIComponent(url)}`, 9000);
+    if(!r.ok) throw new Error(`Worker ${r.status}`);
+    const j=await r.json();
+    if(j.error) throw new Error(j.error);
+    if(j.title){ titleInput.value=j.title; }
+    if(j.image){ thumbInput.value=j.image; setPreview(); }
+    status.innerHTML=`Found via Worker — <code class="bg-zinc-800 px-1 rounded">og:title</code>: ${j.title?.slice(0,70)||'no title'} | <code class="bg-zinc-800 px-1 rounded">og:image</code>: ${j.image?'yes':'no'}`;
+  }catch(e){
+    status.innerHTML=`Worker failed (${e.message}). Check Worker URL, or paste <code class="bg-zinc-800 px-1 rounded">og:title</code> / <code class="bg-zinc-800 px-1 rounded">og:image</code> manually.`;
+  }
 }
 
-function getFiltered(){
-  return data.filter(d=>{
-    const q = searchQuery;
-    const matchesSearch = !q || (d.title+d.tags.join(' ')+(d.note||'')).toLowerCase().includes(q);
-    const matchesTags = selectedTags.size===0 || d.tags.some(t=>selectedTags.has(t));
-    return matchesSearch && matchesTags;
-  });
-}
-
+function getFiltered(){ return data.filter(d=>{ const q=searchQuery; const matchesSearch=!q || (d.title+d.tags.join(' ')+(d.note||'')).toLowerCase().includes(q); const matchesTags=selectedTags.size===0 || d.tags.some(t=>selectedTags.has(t)); return matchesSearch && matchesTags; }); }
 function renderTags(){
-  const allTags = {};
-  data.forEach(d=>d.tags.forEach(t=> allTags[t]=(allTags[t]||0)+1));
-  const sorted = Object.entries(allTags).sort((a,b)=>b[1]-a[1]);
-  const el = document.getElementById('tagList');
-  el.innerHTML = `<button data-tag="__all__" class="px-2.5 py-1 rounded-full text-xs border ${selectedTags.size===0?'bg-white text-black border-white':'bg-zinc-800 border-zinc-700 text-zinc-300'}">All (${data.length})</button>` + sorted.map(([tag,c])=>{
-    const active = selectedTags.has(tag);
-    return `<button data-tag="${tag}" class="px-2.5 py-1 rounded-full text-xs border ${active?'bg-white text-black border-white':'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'}">${tag} <span class="opacity-60">${c}</span></button>`;
-  }).join('');
-  el.querySelectorAll('button').forEach(b=>{
-    b.onclick=()=>{
-      const tag=b.dataset.tag;
-      if(tag==='__all__'){ selectedTags.clear(); }
-      else { if(selectedTags.has(tag)) selectedTags.delete(tag); else selectedTags.add(tag); }
-      render();
-    };
-  });
+  const allTags={}; data.forEach(d=>d.tags.forEach(t=> allTags[t]=(allTags[t]||0)+1));
+  const sorted=Object.entries(allTags).sort((a,b)=>b[1]-a[1]);
+  const el=document.getElementById('tagList');
+  el.innerHTML=`<button data-tag="__all__" class="px-2.5 py-1 rounded-full text-xs border ${selectedTags.size===0?'bg-white text-black border-white':'bg-zinc-800 border-zinc-700 text-zinc-300'}">All (${data.length})</button>` + sorted.map(([tag,c])=>{ const active=selectedTags.has(tag); return `<button data-tag="${tag}" class="px-2.5 py-1 rounded-full text-xs border ${active?'bg-white text-black border-white':'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'}">${tag} <span class="opacity-60">${c}</span></button>`; }).join('');
+  el.querySelectorAll('button').forEach(b=>{ b.onclick=()=>{ const tag=b.dataset.tag; if(tag==='__all__'){ selectedTags.clear(); } else { if(selectedTags.has(tag)) selectedTags.delete(tag); else selectedTags.add(tag); } render(); }; });
 }
-
 function cardHTML(d){
-  const thumb = thumbFor(d);
-  const dom = domain(d.url);
-  return `
-  <div class="card group bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden transition-all hover:border-zinc-700">
+  const thumb=thumbFor(d); const dom=domain(d.url);
+  return `<div class="card group bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden transition-all hover:border-zinc-700">
     <a href="${d.url}" target="_blank" class="block relative aspect-video bg-black overflow-hidden">
       <img src="${thumb}" loading="lazy" class="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500">
       <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
@@ -295,13 +260,12 @@ function cardHTML(d){
     </a>
     <div class="p-3.5">
       <h3 class="text-[14px] font-medium leading-[1.3] line-clamp-2"><a href="${d.url}" target="_blank" class="hover:underline">${d.title||d.url}</a></h3>
-      <div class="flex flex-wrap gap-1 mt-2.5">
-        ${d.tags.map(t=>`<span class="text-[11px] px-2 py-1 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700/50">${t}</span>`).join('')}
-      </div>
+      <div class="flex flex-wrap gap-1 mt-2.5">${d.tags.map(t=>`<span class="text-[11px] px-2 py-1 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700/50">${t}</span>`).join('')}</div>
       ${d.note?`<p class="text-[12px] text-zinc-400 mt-2 line-clamp-2">${d.note}</p>`:''}
       <div class="flex items-center justify-between mt-3">
         <span class="text-[11px] mono text-zinc-500">${d.addedAt||''}</span>
         <div class="flex gap-1">
+          <button onclick="copyJson('${d.id}')" class="text-[11px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/50" title="Copy JSON for GitHub">⎙ Copy JSON</button>
           <button onclick="editItem('${d.id}')" class="text-[11px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700">Edit</button>
           <button onclick="deleteItem('${d.id}')" class="text-[11px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-red-900/50">Del</button>
         </div>
@@ -309,41 +273,20 @@ function cardHTML(d){
     </div>
   </div>`;
 }
-
 function render(){
-  renderTags();
-  const filtered = getFiltered();
-  document.getElementById('stats').textContent = `${filtered.length} videos • ${selectedTags.size? 'filter: '+[...selectedTags].join(', ') : 'all tags'}${searchQuery? ' • search: "'+searchQuery+'"' : ''}`;
-  const grid = document.getElementById('grid');
-  const grouped = document.getElementById('grouped');
-  const empty = document.getElementById('empty');
-
-  if(filtered.length===0){
-    grid.classList.add('hidden'); grouped.classList.add('hidden'); empty.classList.remove('hidden');
-    return;
-  }
+  renderTags(); const filtered=getFiltered();
+  document.getElementById('stats').textContent=`${filtered.length} videos • ${selectedTags.size? 'filter: '+[...selectedTags].join(', ') : 'all tags'}${searchQuery? ' • search: "'+searchQuery+'"' : ''}`;
+  const grid=document.getElementById('grid'); const grouped=document.getElementById('grouped'); const empty=document.getElementById('empty');
+  if(filtered.length===0){ grid.classList.add('hidden'); grouped.classList.add('hidden'); empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
-
   if(groupMode){
     grid.classList.add('hidden'); grouped.classList.remove('hidden');
-    const byTag = {};
-    filtered.forEach(d=>{ d.tags.forEach(t=>{ if(!byTag[t]) byTag[t]=[]; byTag[t].push(d); }); });
-    // also untagged
-    grouped.innerHTML = Object.entries(byTag).sort((a,b)=>b[1].length-a[1].length).map(([tag,items])=>`
-      <div>
-        <h2 class="text-sm font-semibold mb-3 flex items-center gap-2"><span class="px-2.5 py-1 rounded-full bg-white text-black mono text-xs">${tag}</span> <span class="text-zinc-500 mono text-xs">${items.length}</span></h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-          ${items.map(cardHTML).join('')}
-        </div>
-      </div>
-    `).join('');
-  } else {
-    grouped.classList.add('hidden'); grid.classList.remove('hidden');
-    grid.innerHTML = filtered.map(cardHTML).join('');
-  }
+    const byTag={}; filtered.forEach(d=>{ d.tags.forEach(t=>{ if(!byTag[t]) byTag[t]=[]; byTag[t].push(d); }); });
+    grouped.innerHTML=Object.entries(byTag).sort((a,b)=>b[1].length-a[1].length).map(([tag,items])=>`<div><h2 class="text-sm font-semibold mb-3 flex items-center gap-2"><span class="px-2.5 py-1 rounded-full bg-white text-black mono text-xs">${tag}</span> <span class="text-zinc-500 mono text-xs">${items.length}</span></h2><div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">${items.map(cardHTML).join('')}</div></div>`).join('');
+  } else { grouped.classList.add('hidden'); grid.classList.remove('hidden'); grid.innerHTML=filtered.map(cardHTML).join(''); }
 }
-
 function openAdd(prefill=''){
+  setTimeout(()=>{ updateExistingTagChips(); }, 50);
   editingId=null;
   document.getElementById('modalTitle').textContent='Add video';
   document.getElementById('m_url').value=prefill;
@@ -352,13 +295,13 @@ function openAdd(prefill=''){
   document.getElementById('m_note').value='';
   document.getElementById('m_thumb').value='';
   document.getElementById('m_fetchStatus').textContent='';
+  document.getElementById('thumbPreviewWrap')?.classList.add('hidden');
   document.getElementById('modal').classList.remove('hidden');
   if(prefill) autoFetch();
   setTimeout(()=>document.getElementById('m_url').focus(),50);
 }
 function editItem(id){
-  const d = data.find(x=>x.id===id);
-  if(!d) return;
+  const d=data.find(x=>x.id===id); if(!d) return;
   editingId=id;
   document.getElementById('modalTitle').textContent='Edit video';
   document.getElementById('m_url').value=d.url;
@@ -366,49 +309,39 @@ function editItem(id){
   document.getElementById('m_tags').value=d.tags.join(', ');
   document.getElementById('m_note').value=d.note||'';
   document.getElementById('m_thumb').value=d.thumbnail||'';
+  updateExistingTagChips();
+  const prev=document.getElementById('thumbPreview'); const wrap=document.getElementById('thumbPreviewWrap');
+  if(prev && d.thumbnail){ prev.src=d.thumbnail; wrap.classList.remove('hidden'); }
   document.getElementById('modal').classList.remove('hidden');
 }
 function closeModal(){ document.getElementById('modal').classList.add('hidden'); }
 function saveModal(){
-  const url = document.getElementById('m_url').value.trim();
-  if(!url) return alert('URL required');
-  const title = document.getElementById('m_title').value.trim() || url;
-  const tags = document.getElementById('m_tags').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
-  const note = document.getElementById('m_note').value.trim();
-  const thumb = document.getElementById('m_thumb').value.trim();
-  if(editingId){
-    const idx = data.findIndex(x=>x.id===editingId);
-    if(idx>=0) data[idx] = {...data[idx], url, title, tags, note, thumbnail:thumb, videoId: ytId(url)};
-  } else {
-    data.unshift({id: Date.now().toString(), url, title, tags: tags.length?tags:['to-watch'], note, thumbnail:thumb, videoId: ytId(url), addedAt: new Date().toISOString().slice(0,10)});
-  }
+  const url=document.getElementById('m_url').value.trim(); if(!url) return alert('URL required');
+  const title=document.getElementById('m_title').value.trim() || url;
+  const tags=document.getElementById('m_tags').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+  const note=document.getElementById('m_note').value.trim();
+  const thumb=document.getElementById('m_thumb').value.trim();
+  if(editingId){ const idx=data.findIndex(x=>x.id===editingId); if(idx>=0) data[idx]={...data[idx], url, title, tags, note, thumbnail:thumb, videoId: ytId(url)}; }
+  else { data.unshift({id: Date.now().toString(), url, title, tags: tags.length?tags:['to-watch'], note, thumbnail:thumb, videoId: ytId(url), addedAt: new Date().toISOString().slice(0,10)}); }
   save(); closeModal(); render();
 }
-function deleteItem(id){
-  if(!confirm('Delete this bookmark?')) return;
-  data = data.filter(x=>x.id!==id);
-  save(); render();
+function deleteItem(id){ if(!confirm('Delete this bookmark?')) return; data=data.filter(x=>x.id!==id); save(); render(); }
+function exportJSON(){ const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='bookmarks.json'; a.click(); }
+function importJSON(e){ const file=e.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{ try{ const j=JSON.parse(reader.result); if(Array.isArray(j)){ data=j; save(); render(); alert('Imported '+j.length+' videos'); } }catch{ alert('Invalid JSON'); } }; reader.readAsText(file); }
+async function init(){
+  const local=load();
+  if(local && local.length){ data=local; }
+  else {
+    let loaded=null;
+    for(const name of ['./bookmarks.json','./bookmark.json','./data/bookmarks.json']){
+      try{ const r=await fetch(name,{cache:'no-store'}); if(r.ok){ loaded=await r.json(); break; } }catch{}
+    }
+    data=loaded || SAMPLE; save();
+  }
+  const params=new URLSearchParams(location.search); const addParam=params.get('add'); if(addParam){ openAdd(decodeURIComponent(addParam)); }
+  loadWorkerUrl(); bindEvents(); render();
+  const swb=document.getElementById('saveWorkerBtn'); if(swb) swb.addEventListener('click', saveWorkerUrl);
 }
-function exportJSON(){
-  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'bookmarks.json';
-  a.click();
-}
-function importJSON(e){
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = ()=>{
-    try{
-      const j = JSON.parse(reader.result);
-      if(Array.isArray(j)){ data=j; save(); render(); alert('Imported '+j.length+' videos'); }
-    }catch{ alert('Invalid JSON'); }
-  };
-  reader.readAsText(file);
-}
-
 init();
 </script>
 </body>
