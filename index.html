@@ -60,6 +60,12 @@ body{font-family:Inter,system-ui,sans-serif}
           <input id="importInput" type="file" accept=".json" class="hidden">
         </label>
       </div>
+      <div class="p-3 rounded-xl bg-zinc-900 border border-zinc-800">
+        <h4 class="text-xs font-medium mb-2">OG Worker</h4>
+        <input id="workerUrlInput" placeholder="https://your-worker.workers.dev" class="w-full bg-black border border-zinc-800 rounded-lg px-2.5 py-2 text-[11px] mono outline-none focus:border-zinc-600">
+        <p class="text-[10px] text-zinc-500 mt-1">Set your Cloudflare Worker URL for 100% reliable og:title / og:image. Leave empty to use public proxies.</p>
+        <button id="saveWorkerBtn" class="mt-2 w-full py-1.5 rounded-lg bg-zinc-800 text-[11px]">Save Worker URL</button>
+      </div>
       <div class="text-[11px] text-zinc-500 mono leading-relaxed">
         Tip: add <code class="bg-zinc-800 px-1 rounded">?add=URL</code> bookmarklet to capture quickly.
       </div>
@@ -79,14 +85,11 @@ body{font-family:Inter,system-ui,sans-serif}
 </div>
 
 <!-- Modal -->
-<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] hidden px-4 py-2.5 rounded-xl bg-white text-black text-sm font-medium shadow-2xl mono"></div>
-
-<!-- Modal -->
 <div id="modal" class="fixed inset-0 z-50 hidden">
   <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeModal()"></div>
   <div class="relative max-w-[560px] mx-auto mt-[8vh] bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-5">
     <h2 id="modalTitle" class="font-semibold text-[16px]">Add video</h2>
-    <p class="text-xs text-zinc-400 mt-1">Paste any YouTube / Vimeo link. We extract <code class="mono bg-zinc-800 px-1 rounded">og:title</code> + <code class="mono bg-zinc-800 px-1 rounded">og:image</code> via oEmbed → microlink → raw HTML fallback.</p>
+    <p class="text-xs text-zinc-400 mt-1">Paste any YouTube / Vimeo / etc link. Title & thumbnail auto-fetch.</p>
     <div class="mt-5 space-y-4">
       <div>
         <label class="text-[11px] mono uppercase text-zinc-500">URL *</label>
@@ -99,12 +102,8 @@ body{font-family:Inter,system-ui,sans-serif}
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="text-[11px] mono uppercase text-zinc-500">Tags (comma) — typeahead from existing</label>
-          <div class="relative mt-1">
-            <input id="m_tags" placeholder="javascript, cooking, to-watch" autocomplete="off" class="w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-zinc-600">
-            <div id="tagSuggest" class="hidden absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl overflow-hidden shadow-2xl z-20 max-h-[160px] overflow-y-auto"></div>
-          </div>
-          <div id="existingTagChips" class="flex flex-wrap gap-1 mt-2"></div>
+          <label class="text-[11px] mono uppercase text-zinc-500">Tags (comma)</label>
+          <input id="m_tags" placeholder="javascript, cooking, to-watch" class="mt-1 w-full bg-black border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm outline-none">
         </div>
         <div>
           <label class="text-[11px] mono uppercase text-zinc-500">Thumbnail (auto)</label>
@@ -125,7 +124,98 @@ body{font-family:Inter,system-ui,sans-serif}
 
 <script>
 const SAMPLE = [
+  {
+    "id": "1",
+    "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "title": "Never Gonna Give You Up - Tutorial Breakdown",
+    "tags": [
+      "music",
+      "classic",
+      "to-watch"
+    ],
+    "note": "Check production quality",
+    "addedAt": "2024-11-20"
+  },
+  {
+    "id": "2",
+    "url": "https://www.youtube.com/watch?v=9bZkp7q19f0",
+    "title": "PSY - GANGNAM STYLE explained",
+    "tags": [
+      "music",
+      "culture"
+    ],
+    "note": "",
+    "addedAt": "2024-11-18"
+  },
+  {
+    "id": "3",
+    "url": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+    "title": "First YouTube video - me at the zoo",
+    "tags": [
+      "history",
+      "youtube"
+    ],
+    "note": "First ever",
+    "addedAt": "2024-10-01"
+  },
+  {
+    "id": "4",
+    "url": "https://www.youtube.com/watch?v=3JZ_D3ELwOQ",
+    "title": "Learn CSS Grid in 20 mins",
+    "tags": [
+      "javascript",
+      "css",
+      "coding"
+    ],
+    "note": "Good visual examples",
+    "addedAt": "2024-11-22"
+  },
+  {
+    "id": "5",
+    "url": "https://vimeo.com/148751763",
+    "title": "The Beauty of Code",
+    "tags": [
+      "coding",
+      "inspiration"
+    ],
+    "note": "Vimeo test",
+    "addedAt": "2024-11-10"
+  },
+  {
+    "id": "6",
+    "url": "https://www.youtube.com/watch?v=YS4e4q9oBaU",
+    "title": "Folding the perfect Omelette",
+    "tags": [
+      "cooking",
+      "to-watch"
+    ],
+    "note": "For weekend",
+    "addedAt": "2024-11-21"
+  },
+  {
+    "id": "7",
+    "url": "https://www.youtube.com/watch?v=8aGhZQkoFbQ",
+    "title": "What is J.S. Bach?",
+    "tags": [
+      "music",
+      "learning"
+    ],
+    "note": "",
+    "addedAt": "2024-09-12"
+  },
+  {
+    "id": "8",
+    "url": "https://www.youtube.com/watch?v=lTRiuFIWV54",
+    "title": "How to Build a Second Brain",
+    "tags": [
+      "productivity",
+      "learning"
+    ],
+    "note": "Tiago Forte",
+    "addedAt": "2024-11-23"
+  }
 ];
+const CUSTOM_OG_WORKER = 'https://tubemarks-og.forrandomaccts.workers.dev'; // <-- put your worker URL here
 const LS_KEY = 'tubemarks_v1';
 let data = [];
 let selectedTags = new Set();
@@ -180,122 +270,37 @@ async function init(){
   const addParam = params.get('add');
   if(addParam){ openAdd(decodeURIComponent(addParam)); }
 
+  loadWorkerUrl();
   bindEvents();
   render();
+  // worker save button
+  const swb = document.getElementById('saveWorkerBtn'); if(swb) swb.addEventListener('click', saveWorkerUrl);
 }
-
-function getAllTagsList(){
-  const set = new Set();
-  data.forEach(d=>d.tags.forEach(t=>set.add(t)));
-  return Array.from(set).sort();
-}
-function showToast(msg){
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.remove('hidden');
-  clearTimeout(t._timer);
-  t._timer = setTimeout(()=>t.classList.add('hidden'), 2200);
-}
-async function copyJson(id){
-  const d = data.find(x=>x.id===id);
-  if(!d) return;
-  const minimal = {
-    id: d.id,
-    url: d.url,
-    title: d.title,
-    tags: d.tags,
-    note: d.note||"",
-    addedAt: d.addedAt||new Date().toISOString().slice(0,10),
-    thumbnail: d.thumbnail||"",
-    videoId: d.videoId||""
-  };
-  // clean empty
-  if(!minimal.thumbnail) delete minimal.thumbnail;
-  if(!minimal.videoId) delete minimal.videoId;
-  const text = JSON.stringify(minimal, null, 2);
-  try{
-    await navigator.clipboard.writeText(text);
-    showToast('JSON copied — paste into bookmarks.json');
-  }catch{
-    // fallback
-    const ta = document.createElement('textarea');
-    ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
-    showToast('JSON copied');
+const WORKER_LS_KEY = 'tubemarks_worker_url';
+function loadWorkerUrl(){
+  const saved = localStorage.getItem(WORKER_LS_KEY);
+  if(saved){
+    // update constant dynamically
+    window.CUSTOM_WORKER_URL = saved;
+    const inp = document.getElementById('workerUrlInput');
+    if(inp) inp.value = saved;
   }
 }
-
-function updateExistingTagChips(){
-  const cont = document.getElementById('existingTagChips');
-  const all = getAllTagsList();
-  if(!cont) return;
-  const currentTags = document.getElementById('m_tags').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
-  cont.innerHTML = all.map(tag=>{
-    const active = currentTags.includes(tag);
-    return `<button type="button" data-chip="${tag}" class="text-[11px] px-2 py-1 rounded-full border ${active?'bg-white text-black border-white':'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-100'}">${tag}</button>`;
-  }).join('');
-  cont.querySelectorAll('button').forEach(b=>{
-    b.onclick=()=>{
-      const tag=b.dataset.chip;
-      let vals = document.getElementById('m_tags').value.split(',').map(s=>s.trim()).filter(Boolean);
-      const lower = vals.map(v=>v.toLowerCase());
-      if(lower.includes(tag.toLowerCase())){
-        vals = vals.filter(v=>v.toLowerCase()!==tag.toLowerCase());
-      } else {
-        vals.push(tag);
-      }
-      document.getElementById('m_tags').value = vals.join(', ');
-      updateExistingTagChips();
-      updateTagSuggestions();
-    };
-  });
-}
-
-function updateTagSuggestions(){
-  const input = document.getElementById('m_tags');
-  const box = document.getElementById('tagSuggest');
-  if(!input||!box) return;
-  const all = getAllTagsList();
-  const parts = input.value.split(',');
-  const currentToken = parts[parts.length-1].trim().toLowerCase();
-  const existing = parts.map(s=>s.trim().toLowerCase()).filter(Boolean);
-  
-  if(!currentToken){
-    // show all that are not already added, limited to 8
-    const remaining = all.filter(t=>!existing.includes(t)).slice(0,8);
-    if(remaining.length===0){ box.classList.add('hidden'); return; }
-    box.innerHTML = remaining.map(t=>`<button type="button" class="w-full text-left px-3 py-2 text-[12px] hover:bg-zinc-800 flex justify-between" data-suggest="${t}"><span>${t}</span><span class="text-zinc-500 mono">${data.filter(d=>d.tags.includes(t)).length}</span></button>`).join('');
-    box.classList.remove('hidden');
+function saveWorkerUrl(){
+  const v = document.getElementById('workerUrlInput').value.trim();
+  if(v){
+    localStorage.setItem(WORKER_LS_KEY, v);
+    window.CUSTOM_WORKER_URL = v;
+    showToast('Worker URL saved');
   } else {
-    const matches = all.filter(t=> t.toLowerCase().includes(currentToken) && !existing.slice(0,-1).includes(t) ).slice(0,8);
-    if(matches.length===0){ box.classList.add('hidden'); return; }
-    box.innerHTML = matches.map(t=>`<button type="button" class="w-full text-left px-3 py-2 text-[12px] hover:bg-zinc-800 flex justify-between" data-suggest="${t}"><span>${t}</span><span class="text-zinc-500 mono">${data.filter(d=>d.tags.includes(t)).length}</span></button>`).join('');
-    box.classList.remove('hidden');
+    localStorage.removeItem(WORKER_LS_KEY);
+    window.CUSTOM_WORKER_URL = null;
+    showToast('Worker URL cleared, using public proxies');
   }
-  box.querySelectorAll('button').forEach(b=>{
-    b.onmousedown = (e)=>{ e.preventDefault(); }; // keep focus
-    b.onclick = ()=>{
-      const tag=b.dataset.suggest;
-      const parts = input.value.split(',');
-      parts[parts.length-1]= tag + (parts.length===1?'':', ');
-      if(!input.value.includes(',')) parts[0]=tag+', ';
-      else parts[parts.length-1]= tag;
-      // ensure trailing comma+space for next
-      let newVal = parts.slice(0,-1).join(', ');
-      if(newVal) newVal += ', ' + tag;
-      else newVal = tag;
-      // add comma space for next typing
-      input.value = newVal + ', ';
-      box.classList.add('hidden');
-      updateExistingTagChips();
-      input.focus();
-    };
-  });
 }
-
-function hideTagSuggestDelayed(){
-  setTimeout(()=>{ const box=document.getElementById('tagSuggest'); if(box) box.classList.add('hidden'); }, 180);
+function getWorkerUrl(){
+  return window.CUSTOM_WORKER_URL || (CUSTOM_OG_WORKER && !CUSTOM_OG_WORKER.includes('REPLACE') ? CUSTOM_OG_WORKER : null);
 }
-
 
 function bindEvents(){
   document.getElementById('search').addEventListener('input', e=>{ searchQuery=e.target.value.toLowerCase(); render(); });
@@ -311,105 +316,33 @@ function bindEvents(){
   document.getElementById('importInput').addEventListener('change', importJSON);
   document.getElementById('m_url').addEventListener('paste', ()=>setTimeout(autoFetch,100));
   document.getElementById('m_url').addEventListener('blur', autoFetch);
-  const tagInput = document.getElementById('m_tags');
-  tagInput.addEventListener('input', ()=>{ updateExistingTagChips(); updateTagSuggestions(); });
-  tagInput.addEventListener('focus', ()=>{ updateExistingTagChips(); updateTagSuggestions(); });
-  tagInput.addEventListener('blur', hideTagSuggestDelayed);
-  tagInput.addEventListener('keydown', (e)=>{
-    if(e.key==='Escape'){ document.getElementById('tagSuggest').classList.add('hidden'); }
-    if(e.key==='Enter'){ 
-      const box=document.getElementById('tagSuggest');
-      const first = box.querySelector('button');
-      if(first && !box.classList.contains('hidden')){ e.preventDefault(); first.click(); }
-    }
-  });
   document.getElementById('m_save').addEventListener('click', saveModal);
   window.addEventListener('keydown', e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='k'){ e.preventDefault(); document.getElementById('search').focus(); } if(e.key==='Escape') closeModal(); });
-}
-
-function extractFromDoc(doc){
-  const get = (sel) => doc.querySelector(sel)?.getAttribute('content') || '';
-  // og:title > twitter:title > <title>
-  const title = get('meta[property="og:title"]') || get('meta[name="twitter:title"]') || get('meta[property="og:site_name"]') || doc.querySelector('title')?.textContent?.trim() || '';
-  const thumb = get('meta[property="og:image"]') || get('meta[property="og:image:secure_url"]') || get('meta[name="twitter:image"]') || get('meta[name="twitter:image:src"]') || get('meta[property="og:image:url"]') || '';
-  const desc = get('meta[property="og:description"]') || get('meta[name="description"]') || get('meta[name="twitter:description"]') || '';
-  return {title, thumb, desc};
 }
 
 async function autoFetch(){
   const url = document.getElementById('m_url').value.trim();
   if(!url) return;
   const status = document.getElementById('m_fetchStatus');
-  const titleInput = document.getElementById('m_title');
-  const thumbInput = document.getElementById('m_thumb');
   const id = ytId(url);
-  
   if(id){
-    status.textContent = 'YouTube detected → using og:image + high-res thumb';
-    if(!thumbInput.value) thumbInput.value = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
-  } else {
-    status.textContent = 'Fetching og:title / og:image…';
+    status.textContent = 'YouTube detected → thumbnail auto';
+    document.getElementById('m_thumb').value = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
+    if(!document.getElementById('m_title').value){
+      document.getElementById('m_title').value = url; // will be replaced by noembed if possible
+    }
   }
-
-  // 1) Try noembed first (fast, works for YouTube, Vimeo, etc)
   try{
+    status.textContent = 'Fetching title…';
     const r = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
     if(r.ok){
       const j = await r.json();
-      if(j.title){
-        if(!titleInput.value) titleInput.value = j.title;
-        status.textContent = `Found via oEmbed: ${j.title.slice(0,60)}`;
-      }
-      if(j.thumbnail_url && !thumbInput.value){
-        thumbInput.value = j.thumbnail_url;
-      }
-      // if we got both, stop early for speed
-      if(titleInput.value && thumbInput.value) return;
+      if(j.title && !document.getElementById('m_title').value) document.getElementById('m_title').value = j.title;
+      else if(j.title) document.getElementById('m_title').placeholder = j.title;
+      if(j.thumbnail_url && !document.getElementById('m_thumb').value) document.getElementById('m_thumb').value = j.thumbnail_url;
+      status.textContent = `Found: ${j.title || 'oEmbed data'}`;
     }
-  }catch(e){ /* ignore */ }
-
-  // 2) Try microlink.io — it parses og:title / og:image for you and is CORS-enabled
-  //    Free tier, no key needed for low volume
-  try{
-    status.textContent = 'Trying OG extractor (microlink)…';
-    const r = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}&meta=false`);
-    if(r.ok){
-      const j = await r.json();
-      const d = j.data || {};
-      if(d.title && !titleInput.value){
-        titleInput.value = d.title;
-      }
-      // microlink returns image object
-      const img = d.image?.url || d.logo?.url || '';
-      if(img && !thumbInput.value){
-        // prefer og:image, but keep YouTube hqdefault if we have it
-        if(!id) thumbInput.value = img;
-      }
-      if(d.title) status.textContent = `Found OG: ${d.title.slice(0,60)} via og:title / og:image`;
-      if(titleInput.value && thumbInput.value) return;
-    }
-  }catch(e){ /* ignore */ }
-
-  // 3) Fallback: raw HTML via allorigins proxy + DOMParser for og:title / og:image
-  try{
-    status.textContent = 'Fetching page HTML to read meta tags…';
-    const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-    if(r.ok){
-      const j = await r.json();
-      const doc = new DOMParser().parseFromString(j.contents, 'text/html');
-      const {title, thumb} = extractFromDoc(doc);
-      if(title && !titleInput.value){
-        titleInput.value = title;
-      }
-      if(thumb && !thumbInput.value){
-        thumbInput.value = thumb;
-      }
-      if(title) status.textContent = `Extracted og:title / og:image: ${title.slice(0,60)}`;
-      else status.textContent = 'No og tags found, using fallback';
-    }
-  }catch(e){
-    status.textContent = id ? 'YouTube thumb ready — edit title manually if needed' : 'Could not fetch OG tags (CORS). Paste title manually.';
-  }
+  }catch{ status.textContent = id ? 'YouTube OK (offline title)' : ''; }
 }
 
 function getFiltered(){
@@ -460,7 +393,6 @@ function cardHTML(d){
       <div class="flex items-center justify-between mt-3">
         <span class="text-[11px] mono text-zinc-500">${d.addedAt||''}</span>
         <div class="flex gap-1">
-          <button onclick="copyJson('${d.id}')" class="text-[11px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/50" title="Copy JSON for GitHub">⎙ Copy JSON</button>
           <button onclick="editItem('${d.id}')" class="text-[11px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700">Edit</button>
           <button onclick="deleteItem('${d.id}')" class="text-[11px] px-2 py-1 rounded-lg bg-zinc-800 hover:bg-red-900/50">Del</button>
         </div>
@@ -503,7 +435,6 @@ function render(){
 }
 
 function openAdd(prefill=''){
-  setTimeout(()=>{ updateExistingTagChips(); }, 50);
   editingId=null;
   document.getElementById('modalTitle').textContent='Add video';
   document.getElementById('m_url').value=prefill;
@@ -526,7 +457,6 @@ function editItem(id){
   document.getElementById('m_tags').value=d.tags.join(', ');
   document.getElementById('m_note').value=d.note||'';
   document.getElementById('m_thumb').value=d.thumbnail||'';
-  updateExistingTagChips();
   document.getElementById('modal').classList.remove('hidden');
 }
 function closeModal(){ document.getElementById('modal').classList.add('hidden'); }
